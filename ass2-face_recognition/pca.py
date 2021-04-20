@@ -4,7 +4,10 @@ from numpy import *
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+from sympy import GramSchmidt, Matrix
+from scipy.linalg import orth
 from pylab import mpl
+
 
 mpl.rcParams['font.sans-serif'] = ['SimHei']
 
@@ -86,16 +89,24 @@ def load_data(k):
 
 # 定义PCA算法
 def PCA(data, r):
-    data = np.float32(np.mat(data))
+    data = np.float32(np.mat(data))  # 用mat会比ndarray计算快一些
     rows, cols = np.shape(data)
     data_mean = np.mean(data, 0)  # 对列求平均值
     A = data - np.tile(data_mean, (rows, 1))  # 将所有样例减去对应均值得到A
-    C = A * A.T  # 得到协方差矩阵
+
+    # ATA和AAT有相同的特征值，但AAT比ATA规模小很多，可以简化计算
+    C = A * A.T  # np.mat可以直接用*作为矩阵乘法
     D, V = np.linalg.eig(C)  # 求协方差矩阵的特征值和特征向量
-    V_r = V[:, 0:r]  # 按列取前r个特征向量
-    V_r = A.T * V_r  # 小矩阵特征向量向大矩阵特征向量过渡
-    for i in range(r):
-        V_r[:, i] = V_r[:, i] / (np.linalg.norm(V_r[:, i]) + 1e-5)  # 特征向量归一化, 防止出现除0的情况，加上一个epsilon
+
+    indices = argsort(D)  # eig返回的特征值并不是排序的，所以要排序后再选择前r个主成份
+    V_r = V[:, indices[-r:]]
+
+    V_r = A.T * V_r  # A.T*V_r是ATA的特征向量
+
+    # for i in range(r):
+    #     V_r[:, i] = V_r[:, i] / (np.linalg.norm(V_r[:, i]))  # 对于正规阵，只有不同的特征值的特征向量才正交，因此不能用简单的归一化
+
+    V_r = orth(V_r)  # 用scipy.linalg.orth求单位正交向量，orth是用svd做内核的，比直接用np.linalg.eig(ATA)快
 
     final_data = A * V_r
     return final_data, data_mean, V_r
@@ -108,22 +119,26 @@ def face_rec():
         x_value = []
         y_value = []
         for k in range(min_train, max_train + 1):
-            train_face, train_label, test_face, test_label = load_data(k)  # 得到数据集
+            # 加载数据集, train_size=k test_size = IMG_PER_PEOPLE - k
+            train_face, train_label, test_face, test_label = load_data(k)
 
             # 利用PCA算法进行训练
             data_train_new, data_mean, V_r = PCA(train_face, r)
+
             num_train = data_train_new.shape[0]  # 训练脸总数
             num_test = test_face.shape[0]  # 测试脸总数
-            temp_face = test_face - np.tile(data_mean, (num_test, 1))
-            data_test_new = temp_face * V_r  # 得到测试脸在特征向量下的数据
-            data_test_new = np.array(data_test_new)  # mat change to array
+
+            temp_face = test_face - np.tile(data_mean, (num_test, 1))  # 中心化
+            data_test_new = temp_face * V_r  # 把test_face在同一组基下进行投影
+            # mat to array
+            data_test_new = np.array(data_test_new)
             data_train_new = np.array(data_train_new)
 
             # 测试准确度
             true_num = 0
             for i in range(num_test):
-                testFace = data_test_new[i, :]
-                diffMat = data_train_new - np.tile(testFace, (num_train, 1))  # 训练数据与测试脸之间距离
+                test_sample = data_test_new[i, :]
+                diffMat = data_train_new - np.tile(test_sample, (num_train, 1))  # 训练数据与测试脸之间距离
                 sqDiffMat = diffMat ** 2
                 sqDistances = sqDiffMat.sum(axis=1)  # 按行求和
                 sortedDistIndicies = sqDistances.argsort()  # 对向量从小到大排序，使用的是索引值,得到一个向量
@@ -137,7 +152,7 @@ def face_rec():
             x_value.append(k)
             y_value.append(round(accuracy, 2))
 
-            print('当每个人选择%d张照片进行训练时，The classify accuracy is: %.2f%%' % (k, accuracy * 100))
+            print('当每个人选择%d张照片进行训练时，准确率为: %.2f%%' % (k, accuracy * 100))
         '''
         # 绘图
         if r == 10:
