@@ -4,10 +4,15 @@ from numpy import *
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from sympy import GramSchmidt, Matrix
 from scipy.linalg import orth
 from pylab import mpl
+from dataloader import load_PIE
 
+# import argparse
+# parser = argparse.ArgumentParser(description="Configure datasets and other settings.")
+# parser.add_argument('-d', '--dataset', default='FRD', help='Specify a dataset')
+# parser.add_argument()
+# args = parser.parse_args()
 
 mpl.rcParams['font.sans-serif'] = ['SimHei']
 
@@ -24,8 +29,8 @@ def img2vector(image):
 # 在此处修改数据集路径
 # IMG_PATH = "./data/Face Recognition Data/faces94/all/"  # face94原始数据是分成female、male、staff的，这里把他们事先copy到了一起
 # IMG_PATH = "./data/Face Recognition Data/faces95/"
-# IMG_PATH = "./data/Face Recognition Data/faces96/"
-IMG_PATH = "./data/Face Recognition Data/grimace/"  # 准确率都是100%，有问题
+IMG_PATH = "./data/Face Recognition Data/faces96/"
+# IMG_PATH = "./data/Face Recognition Data/grimace/"
 
 # faces94、faces95、grimace的数据都是180*200, face96是196*196
 if IMG_PATH.split('/')[2] == "Face Recognition Data":
@@ -120,8 +125,8 @@ def face_rec():
         y_value = []
         for k in range(min_train, max_train + 1):
             # 加载数据集, train_size=k test_size = IMG_PER_PEOPLE - k
-            train_face, train_label, test_face, test_label = load_data(k)
-
+            # train_face, train_label, test_face, test_label = load_data(k)
+            train_face, train_label, test_face, test_label = load_PIE()
             # 利用PCA算法进行训练
             data_train_new, data_mean, V_r = PCA(train_face, r)
 
@@ -141,8 +146,8 @@ def face_rec():
                 diffMat = data_train_new - np.tile(test_sample, (num_train, 1))  # 训练数据与测试脸之间距离
                 sqDiffMat = diffMat ** 2
                 sqDistances = sqDiffMat.sum(axis=1)  # 按行求和
-                sortedDistIndicies = sqDistances.argsort()  # 对向量从小到大排序，使用的是索引值,得到一个向量
-                indexMin = sortedDistIndicies[0]  # 距离最近的索引
+                sortedDistIndices = sqDistances.argsort()  # 对向量从小到大排序，使用的是索引值,得到一个向量
+                indexMin = sortedDistIndices[0]  # 距离最近的索引
                 if train_label[indexMin] == test_label[i]:
                     true_num += 1
                 else:
