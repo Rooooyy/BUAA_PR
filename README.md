@@ -17,5 +17,11 @@ Supervised by: [Yunhong Wang](http://irip.buaa.edu.cn/yhwang/index.html)
 - 人脸识别方法不限，识别率越高越好
 - 数据集：PIE，Essex
 
-### 作业3：TBD
+### 作业3：遥感图像模式识别
+
+- Out：2021.5.18
+- Due：2021.6.6
+- 对遥感图像中的飞机进行目标检测，方法不限
+- 评估指标使用$mAP$，越高越好
+- 数据集：FAIR1m plane
 
